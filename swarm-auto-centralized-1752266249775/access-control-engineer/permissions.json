@@ -1,0 +1,29 @@
+{
+  "permissions": [
+    "key:create",
+    "key:read",
+    "key:update",
+    "key:delete",
+    "key:rotate",
+    "key:list",
+    "key:export",
+    "user:create",
+    "user:read",
+    "user:update",
+    "user:delete",
+    "user:list",
+    "audit:read",
+    "audit:export",
+    "policy:create",
+    "policy:read",
+    "policy:update",
+    "policy:delete",
+    "system:config",
+    "system:backup"
+  ],
+  "role_mappings": {
+    "admin": "All permissions",
+    "user": "key:create, key:read, key:update, key:rotate, key:list, audit:read",
+    "viewer": "key:read, key:list, audit:read"
+  }
+}

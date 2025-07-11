@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+*/venv/
+*/env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Security - Don't commit sensitive files
+*.key
+*.pem
+*.crt
+*.p12
+.env
+.env.local
+secrets/
+private/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Node modules (for dashboard)
+node_modules/
+.next/
+out/
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+tmp/
+
+# Claude specific
+.claude/
+memory/
+memory-keys.json
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# OS files
+Thumbs.db
+.DS_Store

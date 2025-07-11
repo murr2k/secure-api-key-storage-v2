@@ -1,0 +1,231 @@
+# Enhanced Audit System Configuration
+# This file defines policies for audit logging, key rotation, and security monitoring
+
+# Audit Log Retention Policy
+retention_policy:
+  # Default retention period for all audit events (in days)
+  default_retention_days: 365
+  
+  # Retention periods by severity level
+  severity_retention:
+    debug: 7        # Debug logs kept for 1 week
+    info: 30        # Informational logs kept for 1 month
+    warning: 90     # Warnings kept for 3 months
+    error: 180      # Errors kept for 6 months
+    critical: 730   # Critical events kept for 2 years
+  
+  # Retention periods by event type (overrides severity-based retention)
+  event_type_retention:
+    key_rotated: 730          # Key rotation history kept for 2 years
+    auth_failure: 180         # Failed auth attempts kept for 6 months
+    policy_violation: 365     # Policy violations kept for 1 year
+    tampering_detected: 1825  # Tampering evidence kept for 5 years
+    key_created: 365          # Key creation events kept for 1 year
+    key_deleted: 730          # Key deletion events kept for 2 years
+  
+  # Archive configuration
+  archive_after_days: 90      # Archive events older than 90 days
+  compress_archives: true     # Compress archived events
+  archive_location: "./archives"  # Where to store archives
+
+# Key Rotation Policy
+rotation_policy:
+  # Maximum age for API keys (in days)
+  max_key_age_days: 90
+  
+  # Days before expiry to send warning notifications
+  warning_before_days: 14
+  
+  # Enforcement settings
+  enforce_rotation: true      # Enforce rotation policy
+  auto_rotate: false         # Automatically rotate expired keys
+  block_expired_keys: true   # Block access to expired keys
+  
+  # Grace period after expiry before blocking (in days)
+  grace_period_days: 7
+  
+  # Services exempt from rotation policy
+  exempt_services:
+    - legacy_system
+    - external_integration
+    - emergency_access
+  
+  # Rotation schedule by service (optional overrides)
+  service_rotation_days:
+    production: 60      # Production keys rotate every 60 days
+    staging: 90         # Staging keys rotate every 90 days
+    development: 180    # Development keys rotate every 180 days
+
+# Security Monitoring Configuration
+security_monitoring:
+  # Alert thresholds
+  alert_thresholds:
+    # Authentication failures
+    auth_failures:
+      count: 5
+      window: 5m
+      severity: warning
+    
+    # Brute force detection
+    brute_force:
+      count: 10
+      window: 1m
+      severity: critical
+    
+    # Policy violations
+    policy_violations:
+      count: 3
+      window: 1h
+      severity: warning
+    
+    # Unusual access patterns
+    unusual_access:
+      count: 100
+      window: 1m
+      severity: warning
+  
+  # Security event actions
+  event_actions:
+    tampering_detected:
+      - lock_affected_keys
+      - notify_security_team
+      - create_forensic_snapshot
+      - increase_monitoring_level
+    
+    brute_force_detected:
+      - block_source_ip
+      - increase_rate_limiting
+      - force_password_reset
+      - notify_security_team
+    
+    policy_violation:
+      - log_violation
+      - notify_key_owner
+      - escalate_if_repeated
+
+# Alerting Configuration
+alerting:
+  # Alert channels
+  channels:
+    email:
+      enabled: true
+      smtp_host: smtp.example.com
+      smtp_port: 587
+      from_address: security-alerts@example.com
+      to_addresses:
+        - security-team@example.com
+        - ops-team@example.com
+    
+    slack:
+      enabled: true
+      webhook_url: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+      channels:
+        critical: "#security-critical"
+        warning: "#security-warnings"
+        info: "#security-info"
+    
+    pagerduty:
+      enabled: true
+      service_key: YOUR_PAGERDUTY_SERVICE_KEY
+      severity_mapping:
+        critical: critical
+        error: error
+        warning: warning
+    
+    webhook:
+      enabled: false
+      url: https://your-webhook-endpoint.com/alerts
+      headers:
+        Authorization: Bearer YOUR_TOKEN
+  
+  # Alert routing rules
+  routing:
+    - match:
+        severity: critical
+      channels: [pagerduty, slack, email]
+      throttle: false
+    
+    - match:
+        severity: error
+      channels: [slack, email]
+      throttle: 5m
+    
+    - match:
+        severity: warning
+      channels: [slack]
+      throttle: 15m
+    
+    - match:
+        event_type: tampering_detected
+      channels: [pagerduty, slack, email]
+      throttle: false
+      escalate: true
+
+# Metrics Configuration
+metrics:
+  # Prometheus endpoint
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+  
+  # Metrics to expose
+  expose_metrics:
+    - audit_events_total
+    - audit_signatures_verified
+    - rotation_enforcement_actions
+    - security_alerts_total
+    - key_age_distribution
+    - access_rate_by_service
+    - failed_auth_by_user
+  
+  # Custom metric labels
+  custom_labels:
+    environment: production
+    region: us-east-1
+    team: security
+
+# Performance Tuning
+performance:
+  # Async processing
+  async_processing:
+    enabled: true
+    queue_size: 10000
+    worker_threads: 4
+  
+  # Database optimization
+  database:
+    connection_pool_size: 10
+    query_timeout: 30
+    vacuum_schedule: daily
+  
+  # Caching
+  caching:
+    enabled: true
+    signature_cache_size: 1000
+    signature_cache_ttl: 3600
+    
+# Compliance Settings
+compliance:
+  # Regulatory requirements
+  regulations:
+    - gdpr     # General Data Protection Regulation
+    - pci_dss  # Payment Card Industry Data Security Standard
+    - hipaa    # Health Insurance Portability and Accountability Act
+    - sox      # Sarbanes-Oxley Act
+  
+  # Compliance features
+  features:
+    data_residency: true
+    right_to_erasure: true
+    audit_trail_immutability: true
+    encryption_at_rest: true
+    encryption_in_transit: true
+  
+  # Compliance reporting
+  reporting:
+    generate_compliance_reports: true
+    report_schedule: monthly
+    report_recipients:
+      - compliance@example.com
+      - security@example.com
