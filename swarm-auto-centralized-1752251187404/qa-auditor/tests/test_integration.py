@@ -332,7 +332,7 @@ class APIIntegrationTests(unittest.TestCase):
             # Service, Key, Description
             ("github", "ghp_16CharacterToken1234567890abcdef", "GitHub Personal Access Token"),
             ("aws", "AKIAIOSFODNN7EXAMPLE", "AWS Access Key ID"),
-            ("stripe", "sk_test_4eC39HqLyjWDarjtT1zdp7dc", "Stripe Secret Key"),
+            ("stripe", "sk_test_fake_stripe_key_for_testing_only", "Stripe Secret Key"),
             ("openai", "sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234yz", "OpenAI API Key"),
             ("sendgrid", "SG.abcdefghijklmnop.qrstuvwxyz123456789", "SendGrid API Key"),
             ("jwt", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U", "JWT Token"),
