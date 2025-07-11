@@ -1,0 +1,109 @@
+groups:
+  - name: security_alerts
+    interval: 30s
+    rules:
+      - alert: HighFailedAuthenticationRate
+        expr: rate(auth_failed_attempts_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          component: authentication
+        annotations:
+          summary: "High rate of failed authentication attempts"
+          description: "{{ $value }} failed authentication attempts per second (threshold: 10)"
+
+      - alert: SuspiciousKeyAccess
+        expr: rate(key_access_total{result="failure"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          component: key_storage
+        annotations:
+          summary: "High rate of failed key access attempts"
+          description: "{{ $value }} failed key access attempts per second"
+
+      - alert: KeyRotationOverdue
+        expr: days_until_key_rotation < 7
+        for: 1h
+        labels:
+          severity: warning
+          component: key_rotation
+        annotations:
+          summary: "API key rotation overdue"
+          description: "Key {{ $labels.key_name }} expires in {{ $value }} days"
+
+      - alert: AuditLogTamperingDetected
+        expr: audit_log_tampering_detected > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: audit
+        annotations:
+          summary: "Audit log tampering detected"
+          description: "Potential security breach - audit log tampering detected"
+
+  - name: performance_alerts
+    interval: 30s
+    rules:
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile response time is {{ $value }}s (threshold: 1s)"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+
+  - name: availability_alerts
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"backend-api|frontend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: service
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute"
+
+      - alert: DatabaseConnectionFailure
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection failure"
+          description: "Cannot connect to PostgreSQL database"
+
+      - alert: RedisConnectionFailure
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis connection failure"
+          description: "Cannot connect to Redis cache"
