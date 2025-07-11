@@ -45,12 +45,18 @@ RUN npm run build
 # Stage 4: Final production image
 FROM python-base AS production
 
-# Install runtime dependencies
+# Install runtime dependencies including Node.js
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         nginx \
         supervisor \
-        postgresql-client && \
+        postgresql-client \
+        netcat-openbsd \
+        openssl \
+        curl \
+        ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

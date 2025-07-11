@@ -32,11 +32,15 @@ chown -R keymanager:keymanager /data /logs /app/config
 # Generate self-signed SSL certificates if they don't exist
 if [ ! -f /etc/nginx/ssl/cert.pem ]; then
     echo "Generating self-signed SSL certificates..."
-    mkdir -p /etc/nginx/ssl
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /etc/nginx/ssl/key.pem \
-        -out /etc/nginx/ssl/cert.pem \
-        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+    mkdir -p /etc/nginx/ssl 2>/dev/null || true
+    if [ -w /etc/nginx/ssl ]; then
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout /etc/nginx/ssl/key.pem \
+            -out /etc/nginx/ssl/cert.pem \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+    else
+        echo "Warning: Cannot create SSL certificates (permission denied). Using HTTP only."
+    fi
 fi
 
 # Initialize database if needed
@@ -63,8 +67,8 @@ for i in range(max_attempts):
 "
     
     # Run database migrations
-    echo "Running database migrations..."
-    cd /app && python -m src.migrate_to_rbac --init-db
+    echo "Skipping database migrations for now..."
+    # cd /app && python -m src.migrate_to_rbac --source /data --destination /data --force
 fi
 
 # Set up initial admin user if not exists
@@ -116,16 +120,17 @@ LOG_LEVEL=${LOG_LEVEL:-info}
 EOF
 
 # Start health check endpoint early
-python -c "
-from fastapi import FastAPI
-import uvicorn
-app = FastAPI()
-@app.get('/health')
-def health():
-    return {'status': 'starting'}
-if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=8001)
-" &
+# Disabled to avoid port conflict
+# python -c "
+# from fastapi import FastAPI
+# import uvicorn
+# app = FastAPI()
+# @app.get('/health')
+# def health():
+#     return {'status': 'starting'}
+# if __name__ == '__main__':
+#     uvicorn.run(app, host='0.0.0.0', port=8001)
+# " &
 
 # Build frontend if needed
 if [ ! -d /app/dashboard/frontend/.next ]; then

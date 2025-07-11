@@ -67,3 +67,10 @@ htmlcov/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Backups
+backups/
+*.tar.gz
+
+# Security reports
+bandit_report.json

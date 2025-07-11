@@ -9,8 +9,8 @@ from .generic_integration import GenericIntegration
 
 __all__ = [
     "BaseIntegration",
-    "SecureKeyWrapper", 
+    "SecureKeyWrapper",
     "GitHubIntegration",
     "ClaudeIntegration",
-    "GenericIntegration"
+    "GenericIntegration",
 ]

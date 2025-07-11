@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
@@ -22,7 +22,7 @@ import uvicorn
 load_dotenv()
 
 # Add parent directory to path to import secure_storage module
-sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 # Import middleware
 from middleware import (
@@ -33,9 +33,9 @@ from middleware import (
 )
 
 try:
-    from secure_storage import SecureKeyStorage
-    from config_manager import ConfigManager
-    from key_rotation import KeyRotationManager
+    from src.secure_storage_rbac import SecureKeyStorageRBAC as SecureKeyStorage
+    from src.config_manager import ConfigurationManager as ConfigManager
+    from src.key_rotation import KeyRotationManager
     STORAGE_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import secure storage modules: {e}")
@@ -99,8 +99,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 # Storage instances
 storage = SecureKeyStorage()
-config_manager = ConfigManager(storage)
-rotation_manager = KeyRotationManager(storage)
+config_manager = ConfigManager()  # Uses default config path
+rotation_manager = KeyRotationManager(config_manager)
 
 # WebSocket connections for real-time updates
 active_connections: List[WebSocket] = []

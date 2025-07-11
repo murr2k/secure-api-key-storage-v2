@@ -28,7 +28,7 @@ services:
     volumes:
       - ./data:/data
       - ./logs:/logs
-      - ./config:/app/config:ro
+      - ./config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       postgres:
@@ -86,22 +86,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Nginx reverse proxy
-  nginx:
-    image: nginx:alpine
-    container_name: secure-key-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx:/etc/nginx/conf.d:ro
-      - ./docker/ssl:/etc/nginx/ssl:ro
-      - nginx-cache:/var/cache/nginx
-    depends_on:
-      - secure-key-storage
-    networks:
-      - secure-network
 
   # Monitoring with Prometheus
   prometheus:
@@ -166,8 +150,6 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
-    driver: local
-  nginx-cache:
     driver: local
 
 networks:
