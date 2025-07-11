@@ -68,9 +68,24 @@ docker-compose down && docker-compose build --no-cache && docker-compose up -d
 docker-compose ps
 ```
 
+## CI/CD Pipeline
+The project uses GitHub Actions for continuous integration and deployment:
+- **Workflow file**: `.github/workflows/deploy.yml`
+- **Stages**: Security Scan → Lint & Test → Build → Deploy → Validate
+- **Python**: Black formatting, Flake8 linting, Pytest, Bandit security scanning
+- **Docker**: Multi-platform builds (amd64/arm64) pushed to GitHub Container Registry
+
+### Pipeline Configuration Required:
+1. Set deployment secrets in GitHub repository settings:
+   - `STAGING_HOST`, `STAGING_USER`, `STAGING_SSH_KEY`
+   - `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`
+   - `SLACK_WEBHOOK` (optional)
+2. Update deployment URLs in workflow file (currently using example.com placeholders)
+
 ## Known Issues
 1. Nginx fails to start due to permission issues when running as non-root user (not critical - services are accessible directly)
 2. Some audit and monitoring modules are temporarily disabled in supervisord.conf
+3. CI/CD validate-deployment job uses placeholder URLs that need updating
 
 ## Recent Work (July 11, 2025)
 - Implemented all critical security enhancements from QA audit
@@ -79,8 +94,23 @@ docker-compose ps
 - Containerized the entire application
 - Fixed multiple import and dependency issues
 - Successfully deployed all services
+- **Fixed CI/CD Pipeline Issues**:
+  - Formatted all Python code with Black (line length 100)
+  - Fixed 71 flake8 violations (unused imports, line length, f-strings)
+  - Added basic test file for pytest
+  - Resolved all Bandit security scan issues
+  - Updated .gitignore for backups and security reports
+
+## Code Quality Standards
+- **Python Formatting**: Black with `--line-length 100`
+- **Python Linting**: Flake8 with `--max-line-length=100`
+- **Security**: Bandit scan (no medium/high severity issues allowed)
+- **Testing**: Pytest with coverage reporting
+- **Frontend**: ESLint and Next.js standards
 
 ## Next Steps
+- Configure GitHub repository secrets for deployments
+- Update deployment URLs from example.com to actual domains
 - Fix nginx permission issues for proper reverse proxy
 - Enable audit and monitoring modules
 - Add more comprehensive tests
