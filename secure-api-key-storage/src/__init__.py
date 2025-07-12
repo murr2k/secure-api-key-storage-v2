@@ -5,7 +5,7 @@ A production-ready secure storage system for API keys with AES-256-GCM encryptio
 """
 
 from .secure_storage import APIKeyStorage
-from .secure_storage_rbac import SecureKeyStorageRBAC
+from .secure_storage_rbac import SecureStorageWithRBAC as SecureKeyStorageRBAC
 from .config_manager import ConfigurationManager as ConfigManager
 from .key_rotation import KeyRotationManager
 

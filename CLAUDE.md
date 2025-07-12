@@ -92,6 +92,7 @@ The project uses GitHub Actions for continuous integration and deployment:
 2. ✅ Master password not working - Fixed by updating env var from `API_KEY_MASTER` to `MASTER_PASSWORD`
 3. ✅ 404 errors on Keys, Audit, Settings pages - Fixed by creating all three pages
 4. ✅ TypeScript compilation errors - Fixed with explicit type annotations
+5. ✅ 'SecureKeyStorageRBAC' object has no attribute 'store_key' - Fixed by adding compatibility wrapper methods
 
 ## Recent Work (July 11-12, 2025)
 - Implemented all critical security enhancements from QA audit
@@ -115,6 +116,11 @@ The project uses GitHub Actions for continuous integration and deployment:
   - **Audit Logs Page** (`/audit`): Timeline view with WebSocket real-time updates, filtering, and export
   - **Settings Page** (`/settings`): Security, rotation, notifications, and backup configuration
   - Fixed all TypeScript compilation errors with explicit type annotations
+- **Fixed Backend API Issues**:
+  - Added missing `store_key` method to SecureKeyStorageRBAC class
+  - Implemented compatibility wrapper methods for RBAC storage class
+  - Fixed import of SecureStorageWithRBAC in __init__.py
+  - Added missing `Any` type import in secure_storage_rbac.py
 
 ## Code Quality Standards
 - **Python Formatting**: Black with `--line-length 100`
@@ -142,3 +148,6 @@ The application is fully functional with:
 - Implement backup restoration functionality
 - Add support for more cloud providers (AWS KMS, Azure Key Vault)
 - Integrate actual backend APIs with frontend components (currently using mock data in some places)
+
+## Memory File Update Directive
+- Always update CLAUDE.md

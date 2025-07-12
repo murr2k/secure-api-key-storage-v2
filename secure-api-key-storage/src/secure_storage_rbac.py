@@ -5,7 +5,7 @@ Extends the existing storage system with role-based access control
 
 import os
 import json
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Any
 from datetime import datetime
 
 from .secure_storage import APIKeyStorage, SecurityException
@@ -23,6 +23,7 @@ class SecureStorageWithRBAC(APIKeyStorage):
     ):
         super().__init__(storage_path, master_password)
         self.rbac = RBACManager(rbac_db_path)
+        self.default_user_id = 1  # Default admin user ID
 
         # Create default admin user if none exists
         self._ensure_admin_user()
@@ -94,6 +95,58 @@ class SecureStorageWithRBAC(APIKeyStorage):
                 self.rbac.grant_key_access(key_id, shared_user_id, permissions)
 
         return key_id
+
+    def store_key(self, name: str, value: str, service: Optional[str] = None, metadata: Optional[Dict] = None) -> str:
+        """Store an API key (wrapper for compatibility with dashboard API)"""
+        # For dashboard compatibility, use default admin user
+        full_metadata = metadata or {}
+        if service:
+            full_metadata['service'] = service
+        full_metadata['name'] = name
+        
+        return self.add_api_key_with_rbac(
+            service=service or name,
+            api_key=value,
+            user_id=self.default_user_id,
+            metadata=full_metadata
+        )
+
+    def list_keys(self) -> List[Dict[str, Any]]:
+        """List all API keys (wrapper for compatibility)"""
+        # Use parent method to get all keys
+        keys = super().list_keys()
+        
+        # Format for dashboard compatibility
+        formatted_keys = []
+        for key in keys:
+            formatted_key = {
+                'id': key['id'],
+                'name': key.get('metadata', {}).get('name', key.get('service', 'Unknown')),
+                'service': key.get('service'),
+                'description': key.get('metadata', {}).get('description'),
+                'created_at': key.get('metadata', {}).get('created_at', key.get('added_at')),
+                'updated_at': key.get('metadata', {}).get('updated_at', key.get('added_at')),
+                'last_accessed': key.get('last_accessed'),
+                'rotation_due': key.get('metadata', {}).get('rotation_due')
+            }
+            formatted_keys.append(formatted_key)
+        
+        return formatted_keys
+
+    def get_key(self, key_id: str) -> Optional[str]:
+        """Get an API key value (wrapper for compatibility)"""
+        # For dashboard compatibility, use default admin user
+        return self.get_api_key_with_rbac(key_id, self.default_user_id)
+
+    def delete_key(self, key_id: str) -> bool:
+        """Delete an API key (wrapper for compatibility)"""
+        # For dashboard compatibility, use default admin user
+        return self.delete_api_key_with_rbac(key_id, self.default_user_id)
+
+    def rotate_key(self, key_id: str) -> str:
+        """Rotate an API key (wrapper for compatibility)"""
+        # For dashboard compatibility, use default admin user
+        return self.rotate_api_key_with_rbac(key_id, self.default_user_id)
 
     def get_api_key_with_rbac(self, key_id: str, user_id: int) -> Optional[str]:
         """Get API key with RBAC check"""
