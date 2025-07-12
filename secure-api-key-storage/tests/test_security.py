@@ -12,7 +12,7 @@ from datetime import datetime
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.api_key_storage import APIKeyStorage, SecurityException
+from src.secure_storage import APIKeyStorage, SecurityException
 
 
 class SecurityTests(unittest.TestCase):

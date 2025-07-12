@@ -17,8 +17,8 @@ import sys
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.secure_storage import SecureStorage
-from src.config_manager import ConfigManager
+from src.secure_storage import APIKeyStorage
+from src.config_manager import ConfigurationManager as ConfigManager
 from src.key_rotation import KeyRotationManager
 from src.integrations.base_integration import BaseIntegration, SecureKeyWrapper
 from src.integrations.github_integration import GitHubIntegration

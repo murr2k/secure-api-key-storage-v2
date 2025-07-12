@@ -375,8 +375,8 @@ async def list_keys(
     response_keys = []
     for key in keys:
         response_keys.append(KeyResponse(
-            id=key["name"],  # Using name as ID for now
-            name=key["name"],
+            id=key.get("id", key.get("name", "")),  # Use id if available, fallback to name
+            name=key.get("name", ""),
             service=key.get("service"),
             description=key.get("description"),
             created_at=key.get("created_at", datetime.utcnow()),
@@ -394,8 +394,8 @@ async def create_key(
 ):
     """Create a new API key"""
     try:
-        # Store the key
-        storage.store_key(
+        # Store the key (returns key_id)
+        key_id = storage.store_key(
             key_data.name,
             key_data.value,
             service=key_data.service,
@@ -420,7 +420,7 @@ async def create_key(
         await broadcast_audit_log(audit_entry)
         
         return KeyResponse(
-            id=key_data.name,
+            id=key_id,  # Use the returned key_id
             name=key_data.name,
             service=key_data.service,
             description=key_data.description,
@@ -439,7 +439,7 @@ async def get_key(
 ):
     """Get key metadata (not the actual key value)"""
     keys = storage.list_keys()
-    key_data = next((k for k in keys if k["name"] == key_id), None)
+    key_data = next((k for k in keys if k.get("id") == key_id), None)
     
     if not key_data:
         raise HTTPException(status_code=404, detail="Key not found")

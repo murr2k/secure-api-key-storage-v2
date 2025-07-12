@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # Test database
+  postgres-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: test_secure_keys
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - test-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_secure_keys"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test Redis
+  redis-test:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    command: redis-server --requirepass test_redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test runner service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Test database configuration
+      DATABASE_URL: postgresql://test_user:test_password@postgres-test:5432/test_secure_keys
+      REDIS_URL: redis://:test_redis_password@redis-test:6379/0
+      
+      # Test-specific environment variables
+      TESTING: "true"
+      MASTER_PASSWORD: "test_master_password"
+      JWT_SECRET_KEY: "test_jwt_secret_key_for_testing_only"
+      ENCRYPTION_KEY: "test_encryption_key_32_bytes_long"
+      
+      # Disable external services in tests
+      ENABLE_NOTIFICATIONS: "false"
+      ENABLE_BACKUPS: "false"
+      ENABLE_MONITORING: "false"
+      
+      # Test logging
+      LOG_LEVEL: "DEBUG"
+      
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    volumes:
+      - ./secure-api-key-storage:/app
+      - ./test-reports:/test-reports
+    command: |
+      bash -c "
+        # Wait for services
+        sleep 5
+        
+        # Run database migrations
+        cd /app && python -m src.migrate_to_rbac
+        
+        # Run backend tests
+        cd /app && python -m pytest tests/ \
+          -v \
+          --cov=src \
+          --cov-report=xml:/test-reports/backend-coverage.xml \
+          --cov-report=html:/test-reports/backend-coverage-html \
+          --junit-xml=/test-reports/backend-junit.xml \
+          --maxfail=1 \
+          --tb=short
+        
+        # Run frontend tests (if jest is configured)
+        cd /app/dashboard/frontend && npm test -- \
+          --coverage \
+          --coverageDirectory=/test-reports/frontend-coverage \
+          --testResultsProcessor=jest-junit \
+          --passWithNoTests
+      "
+
+volumes:
+  test-postgres-data:
+
+networks:
+  default:
+    name: test-network

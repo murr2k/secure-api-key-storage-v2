@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from rbac_models import RBACManager, Role, Permission
-from secure_storage_rbac import SecureKeyStorageRBAC
+from secure_storage_rbac import SecureStorageWithRBAC as SecureKeyStorageRBAC
 
 
 def test_rbac_system():

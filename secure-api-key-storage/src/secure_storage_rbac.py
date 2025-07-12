@@ -8,8 +8,8 @@ import json
 from typing import Dict, Optional, List, Tuple, Any
 from datetime import datetime
 
-from .secure_storage import APIKeyStorage, SecurityException
-from .rbac_models import RBACManager, Role, Permission
+from secure_storage import APIKeyStorage, SecurityException
+from rbac_models import RBACManager, Role, Permission
 
 
 class SecureStorageWithRBAC(APIKeyStorage):
@@ -113,19 +113,19 @@ class SecureStorageWithRBAC(APIKeyStorage):
 
     def list_keys(self) -> List[Dict[str, Any]]:
         """List all API keys (wrapper for compatibility)"""
-        # Use parent method to get all keys
-        keys = super().list_keys()
+        # Use parent method to get all keys (pass 'admin' as user)
+        keys = super().list_keys('admin')
         
         # Format for dashboard compatibility
         formatted_keys = []
         for key in keys:
             formatted_key = {
-                'id': key['id'],
+                'id': key['key_id'],  # Use key_id from parent class
                 'name': key.get('metadata', {}).get('name', key.get('service', 'Unknown')),
                 'service': key.get('service'),
                 'description': key.get('metadata', {}).get('description'),
-                'created_at': key.get('metadata', {}).get('created_at', key.get('added_at')),
-                'updated_at': key.get('metadata', {}).get('updated_at', key.get('added_at')),
+                'created_at': key.get('metadata', {}).get('created_at', key.get('created_at')),
+                'updated_at': key.get('metadata', {}).get('updated_at', key.get('created_at')),
                 'last_accessed': key.get('last_accessed'),
                 'rotation_due': key.get('metadata', {}).get('rotation_due')
             }

@@ -17,7 +17,7 @@ import string
 import statistics
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.api_key_storage import APIKeyStorage
+from src.secure_storage import APIKeyStorage
 
 
 class PerformanceTests(unittest.TestCase):

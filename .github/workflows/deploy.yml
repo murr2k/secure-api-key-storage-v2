@@ -12,6 +12,11 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '18'
+  # Test environment configuration
+  TEST_DATABASE_URL: postgresql://test_user:test_password@localhost:5433/test_secure_keys
+  TEST_REDIS_URL: redis://:test_redis_password@localhost:6380/0
+  TEST_MASTER_PASSWORD: test_master_password
+  TESTING: true
 
 jobs:
   # Security scanning
@@ -41,13 +46,37 @@ jobs:
         with:
           path: "secure-api-key-storage/src"
 
-  # Code quality checks
-  lint-and-test:
-    name: Lint and Test
+  # Unit tests (fast feedback)
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
         component: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: test_secure_keys
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -80,11 +109,23 @@ jobs:
           black --check secure-api-key-storage/src
           flake8 secure-api-key-storage/src --max-line-length=100
 
-      - name: Run Python tests
+      - name: Run Python unit tests
         if: matrix.component == 'backend'
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          REDIS_URL: ${{ env.TEST_REDIS_URL }}
+          MASTER_PASSWORD: ${{ env.TEST_MASTER_PASSWORD }}
+          TESTING: ${{ env.TESTING }}
         run: |
           cd secure-api-key-storage
-          pytest tests/ -v --cov=src --cov-report=xml
+          # Run unit tests with coverage
+          pytest tests/test_basic.py tests/test_security.py tests/test_rbac.py \
+            -v --cov=src --cov-report=xml --cov-report=html \
+            --junit-xml=test-reports/backend-unit-junit.xml \
+            --cov-report=term-missing --tb=short
+          
+          # Create coverage badge
+          coverage-badge -o coverage.svg -f
 
       - name: Install Node dependencies
         if: matrix.component == 'frontend'
@@ -98,24 +139,360 @@ jobs:
           cd secure-api-key-storage/dashboard/frontend
           npm run lint
 
-      - name: Run frontend tests
+      - name: Run frontend unit tests
         if: matrix.component == 'frontend'
         run: |
           cd secure-api-key-storage/dashboard/frontend
-          npm test -- --passWithNoTests
+          # Run Jest tests with coverage
+          npm run test:ci
+          
+          # Move coverage reports
+          mkdir -p ../../test-reports/frontend
+          cp -r coverage/* ../../test-reports/frontend/ || true
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        if: matrix.component == 'backend'
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          files: ./secure-api-key-storage/coverage.xml
-          flags: backend
+          name: test-results-${{ matrix.component }}
+          path: |
+            secure-api-key-storage/test-reports/
+            secure-api-key-storage/coverage.xml
+            secure-api-key-storage/htmlcov/
+            secure-api-key-storage/dashboard/frontend/coverage/
+          retention-days: 30
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: |
+            ./secure-api-key-storage/coverage.xml
+            ./secure-api-key-storage/dashboard/frontend/coverage/lcov.info
+          flags: ${{ matrix.component }}
+          name: ${{ matrix.component }}-coverage
 
+  # Integration tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: test_secure_keys
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r secure-api-key-storage/requirements.txt
+          pip install pytest pytest-cov pytest-asyncio requests
+      
+      - name: Run integration tests
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          REDIS_URL: ${{ env.TEST_REDIS_URL }}
+          MASTER_PASSWORD: ${{ env.TEST_MASTER_PASSWORD }}
+          TESTING: ${{ env.TESTING }}
+        run: |
+          cd secure-api-key-storage
+          
+          # Run integration tests
+          pytest tests/test_integration.py tests/test_security_integration.py \
+            -v --tb=short --junit-xml=test-reports/integration-junit.xml
+      
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: secure-api-key-storage/test-reports/
+          retention-days: 30
+  
+  # Performance regression tests
+  performance-tests:
+    name: Performance Regression Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r secure-api-key-storage/requirements.txt
+          pip install pytest psutil
+      
+      - name: Run performance tests
+        env:
+          TESTING: ${{ env.TESTING }}
+        run: |
+          cd secure-api-key-storage
+          
+          # Create performance baseline if it doesn't exist
+          mkdir -p test-data/performance
+          
+          # Run performance regression tests
+          pytest tests/test_performance_regression.py \
+            -v --tb=short --junit-xml=test-reports/performance-junit.xml
+          
+          # Run existing performance tests
+          pytest tests/test_performance.py -v || true
+      
+      - name: Upload performance test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-test-results
+          path: |
+            secure-api-key-storage/test-reports/
+            secure-api-key-storage/test-data/performance/
+          retention-days: 30
+  
+  # Security regression tests
+  security-regression-tests:
+    name: Security Regression Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r secure-api-key-storage/requirements.txt
+          pip install pytest bandit safety
+      
+      - name: Run security regression tests
+        env:
+          TESTING: ${{ env.TESTING }}
+        run: |
+          cd secure-api-key-storage
+          
+          # Run security-focused tests
+          pytest tests/test_critical_security_recommendations.py \
+            -v --tb=short --junit-xml=test-reports/security-junit.xml
+          
+          # Run additional security scans
+          bandit -r src/ -f json -o test-reports/bandit-report.json || true
+          safety check --json --output test-reports/safety-report.json || true
+      
+      - name: Upload security test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-test-results
+          path: secure-api-key-storage/test-reports/
+          retention-days: 30
+  
+  # End-to-end tests
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: secure-api-key-storage/dashboard/frontend/package-lock.json
+      
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r secure-api-key-storage/requirements.txt
+          pip install selenium pytest
+          
+          # Install frontend dependencies
+          cd secure-api-key-storage/dashboard/frontend
+          npm ci
+      
+      - name: Start test environment
+        run: |
+          # Start test services with docker-compose
+          docker-compose -f docker-compose.test.yml up -d postgres-test redis-test
+          
+          # Wait for services to be ready
+          sleep 10
+          
+          # Start backend in background
+          cd secure-api-key-storage/dashboard/backend
+          python main.py &
+          BACKEND_PID=$!
+          echo "BACKEND_PID=$BACKEND_PID" >> $GITHUB_ENV
+          
+          # Start frontend in background
+          cd ../frontend
+          npm run build
+          npm start &
+          FRONTEND_PID=$!
+          echo "FRONTEND_PID=$FRONTEND_PID" >> $GITHUB_ENV
+          
+          # Wait for services to start
+          sleep 15
+      
+      - name: Run E2E tests
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          E2E_API_URL: http://localhost:8000
+          TESTING: ${{ env.TESTING }}
+        run: |
+          cd secure-api-key-storage
+          
+          # Run E2E tests
+          pytest tests/e2e/test_user_flows.py \
+            -v --tb=short --junit-xml=test-reports/e2e-junit.xml
+      
+      - name: Cleanup test environment
+        if: always()
+        run: |
+          # Kill background processes
+          kill $BACKEND_PID || true
+          kill $FRONTEND_PID || true
+          
+          # Stop docker services
+          docker-compose -f docker-compose.test.yml down
+      
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: |
+            secure-api-key-storage/test-reports/
+            screenshots/
+          retention-days: 30
+  
+  # Test summary and reporting
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, performance-tests, security-regression-tests]
+    if: always()
+    
+    steps:
+      - name: Download all test artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: test-results
+      
+      - name: Generate test summary
+        run: |
+          echo "# Test Summary" > test-summary.md
+          echo "" >> test-summary.md
+          echo "## Test Results" >> test-summary.md
+          
+          # Check test results
+          if [ "${{ needs.unit-tests.result }}" == "success" ]; then
+            echo "✅ Unit Tests: PASSED" >> test-summary.md
+          else
+            echo "❌ Unit Tests: FAILED" >> test-summary.md
+          fi
+          
+          if [ "${{ needs.integration-tests.result }}" == "success" ]; then
+            echo "✅ Integration Tests: PASSED" >> test-summary.md
+          else
+            echo "❌ Integration Tests: FAILED" >> test-summary.md
+          fi
+          
+          if [ "${{ needs.performance-tests.result }}" == "success" ]; then
+            echo "✅ Performance Tests: PASSED" >> test-summary.md
+          else
+            echo "❌ Performance Tests: FAILED" >> test-summary.md
+          fi
+          
+          if [ "${{ needs.security-regression-tests.result }}" == "success" ]; then
+            echo "✅ Security Tests: PASSED" >> test-summary.md
+          else
+            echo "❌ Security Tests: FAILED" >> test-summary.md
+          fi
+          
+          echo "" >> test-summary.md
+          echo "Detailed results available in test artifacts." >> test-summary.md
+          
+          cat test-summary.md
+      
+      - name: Comment test summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('test-summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+  
   # Build Docker images
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: [security-scan, lint-and-test]
+    needs: [security-scan, unit-tests, integration-tests]
     permissions:
       contents: read
       packages: write

@@ -6,7 +6,7 @@ Handles Claude/Anthropic API authentication and key management
 import re
 import requests
 from typing import Dict, Optional, List, Any
-from base_integration import BaseIntegration
+from .base_integration import BaseIntegration
 
 
 class ClaudeIntegration(BaseIntegration):
