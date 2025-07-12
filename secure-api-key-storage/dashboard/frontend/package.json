@@ -46,6 +46,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "ts-jest": "^29.1.1",
     "msw": "^2.0.11",
-    "@axe-core/react": "^4.8.0"
+    "jest-axe": "^8.0.0"
   }
 }

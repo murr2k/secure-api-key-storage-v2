@@ -8,8 +8,8 @@ import json
 from typing import Dict, Optional, List, Tuple, Any
 from datetime import datetime
 
-from secure_storage import APIKeyStorage, SecurityException
-from rbac_models import RBACManager, Role, Permission
+from .secure_storage import APIKeyStorage, SecurityException
+from .rbac_models import RBACManager, Role, Permission
 
 
 class SecureStorageWithRBAC(APIKeyStorage):
@@ -141,12 +141,33 @@ class SecureStorageWithRBAC(APIKeyStorage):
     def delete_key(self, key_id: str) -> bool:
         """Delete an API key (wrapper for compatibility)"""
         # For dashboard compatibility, use default admin user
-        return self.delete_api_key_with_rbac(key_id, self.default_user_id)
+        return self.revoke_key_with_rbac(key_id, self.default_user_id)
 
     def rotate_key(self, key_id: str) -> str:
         """Rotate an API key (wrapper for compatibility)"""
         # For dashboard compatibility, use default admin user
-        return self.rotate_api_key_with_rbac(key_id, self.default_user_id)
+        # Generate a new key value
+        import secrets
+        new_key = secrets.token_urlsafe(32)
+        success = self.rotate_key_with_rbac(key_id, new_key, self.default_user_id)
+        if success:
+            return new_key
+        else:
+            raise Exception("Key rotation failed")
+    
+    def update_key(self, key_id: str, new_value: str) -> bool:
+        """Update an API key (wrapper for compatibility)"""
+        # For dashboard compatibility, use default admin user
+        return self.update_api_key_with_rbac(key_id, new_value, self.default_user_id)
+    
+    def verify_master_password(self, password: str) -> bool:
+        """Verify the master password"""
+        # Use the parent class's master password verification
+        # This should match the master password used during initialization
+        master_password = os.environ.get("MASTER_PASSWORD") or os.environ.get("API_KEY_MASTER")
+        if not master_password:
+            return False
+        return password == master_password
 
     def get_api_key_with_rbac(self, key_id: str, user_id: int) -> Optional[str]:
         """Get API key with RBAC check"""

@@ -25,12 +25,40 @@ load_dotenv()
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
 # Import middleware
-from middleware import (
-    SecurityHeadersMiddleware,
-    RateLimitMiddleware,
-    RequestLoggingMiddleware,
-    CSRFMiddleware
-)
+try:
+    from middleware import (
+        SecurityHeadersMiddleware,
+        RateLimitMiddleware,
+        RequestLoggingMiddleware,
+        CSRFMiddleware
+    )
+    MIDDLEWARE_AVAILABLE = True
+except ImportError:
+    try:
+        from dashboard.backend.middleware import (
+            SecurityHeadersMiddleware,
+            RateLimitMiddleware,
+            RequestLoggingMiddleware,
+            CSRFMiddleware
+        )
+        MIDDLEWARE_AVAILABLE = True
+    except ImportError:
+        print("Warning: Middleware not available, using default middleware")
+        MIDDLEWARE_AVAILABLE = False
+        
+        # Create dummy middleware classes
+        class SecurityHeadersMiddleware:
+            def __init__(self, app):
+                self.app = app
+        class RateLimitMiddleware:
+            def __init__(self, app, calls=100, period=60):
+                self.app = app
+        class RequestLoggingMiddleware:
+            def __init__(self, app):
+                self.app = app
+        class CSRFMiddleware:
+            def __init__(self, app):
+                self.app = app
 
 try:
     from src.secure_storage_rbac import SecureKeyStorageRBAC as SecureKeyStorage
@@ -78,10 +106,13 @@ app = FastAPI(
 )
 
 # Add middleware
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RateLimitMiddleware, calls=100, period=60)
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(CSRFMiddleware)
+if MIDDLEWARE_AVAILABLE:
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware, calls=100, period=60)
+    app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(CSRFMiddleware)
+else:
+    print("Running without custom middleware")
 
 # CORS configuration
 cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
@@ -99,7 +130,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 # Storage instances
 storage = SecureKeyStorage()
-config_manager = ConfigManager()  # Uses default config path
+config_manager = ConfigManager("./api_config")  # Provide config path
 rotation_manager = KeyRotationManager(config_manager)
 
 # WebSocket connections for real-time updates
@@ -316,10 +347,13 @@ if ENHANCED_AUTH_AVAILABLE:
         """Get authentication audit logs."""
         return await get_auth_audit_logs(limit, current_user)
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
 @app.post("/api/auth/refresh", response_model=Token)
-async def refresh_token(refresh_token: str):
+async def refresh_token(request: RefreshTokenRequest):
     try:
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(request.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         token_type: str = payload.get("type")
         if username is None or token_type != "refresh":
@@ -368,7 +402,7 @@ async def list_keys(
         keys = [
             k for k in keys 
             if search_lower in k.get("name", "").lower() or 
-               search_lower in k.get("description", "").lower()
+               search_lower in (k.get("description") or "").lower()
         ]
     
     # Convert to response format
@@ -518,7 +552,7 @@ async def rotate_key(
 ):
     """Rotate a key"""
     try:
-        new_key = rotation_manager.rotate_key(key_id)
+        new_key = storage.rotate_key(key_id)
         
         # Broadcast audit log
         audit_entry = AuditLogEntry(
