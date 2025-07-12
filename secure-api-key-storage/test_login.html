@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+</head>
+<body>
+    <h1>Testing Login Interface</h1>
+    <p>Click the link below to access the login page:</p>
+    <a href="http://localhost:3000" target="_blank">Open Secure API Key Storage Dashboard</a>
+    
+    <h2>Login Credentials:</h2>
+    <ul>
+        <li><strong>Username:</strong> admin (or leave blank)</li>
+        <li><strong>Password:</strong> SecureApiKey2025!</li>
+    </ul>
+    
+    <h2>Direct API Test:</h2>
+    <button onclick="testLogin()">Test Login API</button>
+    <pre id="result"></pre>
+    
+    <script>
+    async function testLogin() {
+        try {
+            const response = await fetch('http://localhost:8000/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'username=admin&password=SecureApiKey2025!'
+            });
+            
+            const data = await response.json();
+            document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+            document.getElementById('result').textContent = 'Error: ' + error.message;
+        }
+    }
+    </script>
+</body>
+</html>

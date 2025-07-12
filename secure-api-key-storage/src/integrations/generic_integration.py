@@ -6,7 +6,7 @@ Provides flexible integration for any API service
 import re
 import requests
 from typing import Dict, Optional
-from base_integration import BaseIntegration
+from .base_integration import BaseIntegration
 
 
 class GenericServiceIntegration(BaseIntegration):
@@ -227,7 +227,7 @@ def create_custom_integration(
 # Example usage
 def generic_integration_example():
     """Example of using generic integrations"""
-    from base_integration import SecureKeyWrapper
+    from .base_integration import SecureKeyWrapper
 
     # Create wrapper
     wrapper = SecureKeyWrapper()
