@@ -135,6 +135,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if request.method in self.safe_methods:
             return await call_next(request)
         
+        # Skip CSRF check for auth endpoints (login, refresh, etc.)
+        auth_endpoints = ["/api/auth/login", "/api/auth/refresh", "/api/auth/logout"]
+        if request.url.path in auth_endpoints:
+            return await call_next(request)
+        
         # Skip for API endpoints that use JWT authentication
         if request.url.path.startswith("/api/") and "authorization" in request.headers:
             return await call_next(request)

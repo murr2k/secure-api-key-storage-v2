@@ -198,7 +198,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 def verify_master_password(password: str) -> bool:
     """Verify the master password matches the environment variable"""
-    master_password = os.environ.get("API_KEY_MASTER")
+    master_password = os.environ.get("MASTER_PASSWORD")
+    if not master_password:
+        # Fallback to API_KEY_MASTER for backwards compatibility
+        master_password = os.environ.get("API_KEY_MASTER")
     if not master_password:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -235,7 +238,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), request: Reque
     # Original implementation as fallback
     # Debug logging
     print(f"Login attempt - Username: {form_data.username}")
-    print(f"Master password from env: {os.environ.get('API_KEY_MASTER', 'NOT SET')[:3]}...")
+    master_pass = os.environ.get('MASTER_PASSWORD', os.environ.get('API_KEY_MASTER', 'NOT SET'))
+    print(f"Master password from env: {master_pass[:3] if master_pass != 'NOT SET' else 'NOT SET'}...")
     
     if not verify_master_password(form_data.password):
         raise HTTPException(
@@ -639,7 +643,7 @@ async def health_check():
 @app.post("/api/debug/test-login")
 async def debug_test_login(password: str = "test"):
     """Debug endpoint to test login without OAuth2 form"""
-    master_password = os.environ.get("API_KEY_MASTER")
+    master_password = os.environ.get("MASTER_PASSWORD", os.environ.get("API_KEY_MASTER"))
     return {
         "master_password_set": bool(master_password),
         "password_matches": password == master_password if master_password else False,
@@ -653,7 +657,7 @@ async def startup_event():
     print("=" * 50)
     print("Secure API Key Storage Dashboard - Backend")
     print("=" * 50)
-    print(f"Master password configured: {bool(os.environ.get('API_KEY_MASTER'))}")
+    print(f"Master password configured: {bool(os.environ.get('MASTER_PASSWORD', os.environ.get('API_KEY_MASTER')))}")
     print(f"JWT secret configured: {bool(os.environ.get('JWT_SECRET_KEY'))}")
     print(f"CORS origins: {os.environ.get('CORS_ORIGINS', 'http://localhost:3000')}")
     print(f"Enhanced authentication: {ENHANCED_AUTH_AVAILABLE}")
